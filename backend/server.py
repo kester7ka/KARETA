@@ -23,7 +23,6 @@ from pydantic import BaseModel, EmailStr, field_validator
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 DB_PATH = BASE_DIR / "backend" / "kareta.db"
-FRONTEND_DIR = BASE_DIR / "frontend"
 
 CODE_TTL_MINUTES = 10
 CODE_COOLDOWN_SECONDS = 60
@@ -37,7 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
+# Только css/ и js/ в /assets — не весь корень репо (иначе отдавался бы backend/).
+app.mount("/assets/css", StaticFiles(directory=BASE_DIR / "css"), name="assets_css")
+app.mount("/assets/js", StaticFiles(directory=BASE_DIR / "js"), name="assets_js")
 
 security = HTTPBearer(auto_error=False)
 
@@ -721,7 +722,7 @@ async def startup_event() -> None:
 
 @app.get("/")
 async def index() -> FileResponse:
-    return FileResponse(FRONTEND_DIR / "index.html")
+    return FileResponse(BASE_DIR / "index.html")
 
 
 @app.post("/api/auth/register/send-code")
