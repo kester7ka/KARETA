@@ -20,6 +20,7 @@ import {
   decryptChatMessage,
   encryptChatMessage,
   ensureE2EKeys,
+  forgetConversationKey,
   getConversationAesKey,
 } from "../crypto/e2e.js";
 import { refreshIcons } from "../icons.js";
@@ -142,6 +143,34 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
   let thread = null;
   let pollTimer = null;
   let lastChatsNotifySig = null;
+  let lastThreadMessagesSig = null;
+  let removeThreadViewportListeners = null;
+
+  function cleanupThreadUi() {
+    if (typeof removeThreadViewportListeners === "function") {
+      removeThreadViewportListeners();
+    }
+    removeThreadViewportListeners = null;
+    document.documentElement.style.removeProperty("--ms-keyboard-gap");
+    const sh = container.querySelector("#ms-shell");
+    if (sh) {
+      sh.classList.remove("ms-shell--edge-drag");
+    }
+    const bodyPan = container.querySelector("#ms-body");
+    if (bodyPan) {
+      bodyPan.style.transform = "";
+      bodyPan.style.transition = "";
+    }
+  }
+
+  function messagesDomSignature(messages) {
+    if (!messages || !messages.length) {
+      return "empty";
+    }
+    return messages
+      .map((m) => `${m.id}|${m.read_by_peer ? 1 : 0}|${m.is_encrypted ? 1 : 0}|${m.created_at}`)
+      .join(";");
+  }
 
   function closeModal() {
     const el = container.querySelector("#ms-modal-overlay");
@@ -311,10 +340,20 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
       renderBody({ animateTab: true, tabDir });
     });
 
-    const EDGE_PX = 32;
-    const SWIPE_MIN_DX = 64;
+    const EDGE_PX = 36;
+    const SWIPE_MIN_DX = 72;
+    const SWIPE_VISUAL_CAP = 64;
     let edgeSwipe = null;
     const shell = container.querySelector("#ms-shell");
+    const setShellDrag = (dx) => {
+      const bodyEl = container.querySelector("#ms-body");
+      const x = Math.min(Math.max(0, dx * 0.42), SWIPE_VISUAL_CAP);
+      shell.classList.toggle("ms-shell--edge-drag", x > 6);
+      if (bodyEl) {
+        bodyEl.style.transition = x ? "none" : "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)";
+        bodyEl.style.transform = x ? `translate3d(${x}px,0,0)` : "";
+      }
+    };
     shell.addEventListener(
       "touchstart",
       (e) => {
@@ -327,21 +366,45 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
           edgeSwipe = null;
           return;
         }
+        const canBack =
+          Boolean(thread) || (section === "profile" && !profileMenuMode);
+        if (!canBack) {
+          edgeSwipe = null;
+          return;
+        }
         edgeSwipe = { x: t.clientX, y: t.clientY };
+      },
+      { passive: true },
+    );
+    shell.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!edgeSwipe || e.touches.length !== 1) {
+          return;
+        }
+        const t = e.touches[0];
+        const dx = t.clientX - edgeSwipe.x;
+        const dy = t.clientY - edgeSwipe.y;
+        if (dx > 10 && Math.abs(dy) < 85) {
+          setShellDrag(dx);
+        }
       },
       { passive: true },
     );
     shell.addEventListener(
       "touchend",
       (e) => {
+        setShellDrag(0);
+        shell.classList.remove("ms-shell--edge-drag");
         if (!edgeSwipe || !e.changedTouches.length) {
+          edgeSwipe = null;
           return;
         }
         const t = e.changedTouches[0];
         const dx = t.clientX - edgeSwipe.x;
         const dy = Math.abs(t.clientY - edgeSwipe.y);
         edgeSwipe = null;
-        if (dy > 110) {
+        if (dy > 120) {
           return;
         }
         if (dx < SWIPE_MIN_DX) {
@@ -415,6 +478,8 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
 
   function closeThread() {
     stopPoll();
+    cleanupThreadUi();
+    lastThreadMessagesSig = null;
     thread = null;
     const bodyEl = container.querySelector("#ms-body");
     if (bodyEl) {
@@ -429,6 +494,16 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
   async function openThread(conversationId, peer) {
     thread = { conversationId, peer };
     stopPoll();
+    lastThreadMessagesSig = null;
+    forgetConversationKey(conversationId);
+    try {
+      const pp = await fetchPeerProfile(conversationId);
+      if (pp?.peer?.public_key_spki) {
+        thread.peer = { ...thread.peer, ...pp.peer };
+      }
+    } catch {
+      /* оставляем peer из кэша чатов */
+    }
     container.querySelector("#ms-back").classList.remove("hidden");
     container.querySelector("#ms-nav").classList.add("hidden");
     container.querySelector("#ms-title").textContent = peer.username || "Чат";
@@ -455,7 +530,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
     await load();
     pollTimer = setInterval(() => {
       load();
-    }, 4000);
+    }, 5000);
 
     window.addEventListener("online", load);
   }
@@ -491,12 +566,26 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
     if (!box) {
       return;
     }
+    const sig = messagesDomSignature(messages);
+    const decryptBroken =
+      box.innerHTML.includes("не удалось расшифровать") ||
+      box.textContent.includes("не удалось расшифровать");
+    if (sig === lastThreadMessagesSig && box.innerHTML.trim() !== "" && !decryptBroken) {
+      return;
+    }
+
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 130;
+    const prevTop = box.scrollTop;
+    const prevHeight = box.scrollHeight;
+
     if (!messages.length) {
+      lastThreadMessagesSig = "empty";
       box.innerHTML = `<div class="ms-empty">Нет сообщений. Напиши первым.</div>`;
       refreshIcons();
       return;
     }
     if (!thread.peer.public_key_spki) {
+      lastThreadMessagesSig = sig;
       box.innerHTML = `<div class="ms-empty">У собеседника нет ключа шифрования — сообщения недоступны.</div>`;
       refreshIcons();
       return;
@@ -505,6 +594,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
     try {
       aesKey = await getConversationAesKey(thread.conversationId, thread.peer.public_key_spki);
     } catch (e) {
+      lastThreadMessagesSig = sig;
       box.innerHTML = `<div class="ms-empty">${escapeHtml(e.message)}</div>`;
       refreshIcons();
       return;
@@ -538,6 +628,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
       </div>`;
       }),
     );
+    lastThreadMessagesSig = sig;
     box.innerHTML = lines.join("");
     const last = messages.length ? messages[messages.length - 1] : null;
     if (last) {
@@ -556,7 +647,34 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
       }
     }
     refreshIcons();
-    box.scrollTop = box.scrollHeight;
+    requestAnimationFrame(() => {
+      const grow = box.scrollHeight - prevHeight;
+      if (nearBottom) {
+        box.scrollTop = box.scrollHeight;
+      } else if (grow !== 0) {
+        box.scrollTop = prevTop + grow;
+      }
+    });
+  }
+
+  function setupThreadViewport() {
+    cleanupThreadUi();
+    const vv = window.visualViewport;
+    if (!vv) {
+      return;
+    }
+    const apply = () => {
+      const gap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty("--ms-keyboard-gap", `${gap}px`);
+    };
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    removeThreadViewportListeners = () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      document.documentElement.style.removeProperty("--ms-keyboard-gap");
+    };
+    apply();
   }
 
   function formatTime(iso) {
@@ -573,7 +691,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
     body.classList.add("ms-body--thread");
     const canEncrypt = Boolean(thread.peer.public_key_spki);
     body.innerHTML = `
-      <div class="ms-thread">
+      <div class="ms-thread ms-thread--fixed-compose">
         <div id="ms-request-host"></div>
         <div class="ms-thread-peer">
           <div>
@@ -625,6 +743,15 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
         send();
       }
     });
+    ta.addEventListener("focus", () => {
+      requestAnimationFrame(() => {
+        const msgs = body.querySelector("#ms-msgs");
+        if (msgs) {
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+      });
+    });
+    setupThreadViewport();
   }
 
   function renderBody(opts = {}) {

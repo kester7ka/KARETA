@@ -9,6 +9,11 @@
   overflow-x: hidden;
   max-width: 100%;
   touch-action: pan-y;
+  will-change: auto;
+}
+
+.ms-shell.ms-shell--edge-drag {
+  box-shadow: inset 5px 0 18px rgba(124, 58, 237, 0.35);
 }
 
 .ms-top {
@@ -387,6 +392,10 @@
   overscroll-behavior: contain;
 }
 
+.ms-thread.ms-thread--fixed-compose .ms-msgs {
+  padding-bottom: calc(12px + 92px + var(--k-safe-b) + var(--ms-keyboard-gap, 0px));
+}
+
 .ms-bubble {
   max-width: 85%;
   padding: 10px 12px;
@@ -457,11 +466,24 @@
   gap: 8px;
   align-items: flex-end;
   padding: 10px 12px;
-  padding-bottom: calc(10px + var(--k-safe-b));
+  padding-bottom: calc(10px + var(--k-safe-b) + var(--ms-keyboard-gap, 0px));
   border-top: 1px solid var(--k-border);
   background: var(--k-bg);
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
   z-index: 10;
+}
+
+/* Панель ввода к низу экрана; лента только под ней (клавиатура — через --ms-keyboard-gap из JS) */
+.ms-thread.ms-thread--fixed-compose .ms-compose {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: min(520px, 100vw);
+  box-sizing: border-box;
+  z-index: 45;
+  padding-bottom: calc(10px + var(--k-safe-b) + var(--ms-keyboard-gap, 0px));
 }
 
 .ms-compose textarea {

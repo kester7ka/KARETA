@@ -51,6 +51,11 @@ export function clearConversationKeyCache() {
   conversationAesCache.clear();
 }
 
+/** После смены public_key собеседника пересчитать AES для этого чата. */
+export function forgetConversationKey(conversationId) {
+  conversationAesCache.delete(String(conversationId));
+}
+
 async function loadPrivateKey() {
   const raw = localStorage.getItem(LS_PRIVATE);
   if (!raw) {
@@ -103,7 +108,8 @@ async function importPeerPublicSpki(spkiB64) {
 }
 
 export async function getConversationAesKey(conversationId, peerPublicKeySpkiB64) {
-  if (!peerPublicKeySpkiB64) {
+  const peerSpki = String(peerPublicKeySpkiB64 || "").trim();
+  if (!peerSpki) {
     throw new Error("У собеседника нет ключа шифрования.");
   }
   const cid = String(conversationId);
@@ -114,7 +120,7 @@ export async function getConversationAesKey(conversationId, peerPublicKeySpkiB64
   if (!privateKey) {
     throw new Error("Нет локального ключа. Перезайди в аккаунт.");
   }
-  const peerPub = await importPeerPublicSpki(peerPublicKeySpkiB64);
+  const peerPub = await importPeerPublicSpki(peerSpki);
   const sharedBits = await crypto.subtle.deriveBits({ name: "ECDH", public: peerPub }, privateKey, 256);
   const hkdfKey = await crypto.subtle.importKey("raw", sharedBits, "HKDF", false, ["deriveKey"]);
   const aesKey = await crypto.subtle.deriveKey(
@@ -145,8 +151,14 @@ export async function encryptChatMessage(aesKey, plainText) {
 }
 
 export async function decryptChatMessage(aesKey, ivB64, ciphertextB64) {
-  const iv = new Uint8Array(b64ToBuf(ivB64));
+  const ivRaw = new Uint8Array(b64ToBuf(ivB64));
+  if (ivRaw.length !== 12) {
+    throw new Error(`IV length ${ivRaw.length}, need 12`);
+  }
   const ciphertext = new Uint8Array(b64ToBuf(ciphertextB64));
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ciphertext);
+  if (ciphertext.length < 16) {
+    throw new Error("Слишком короткий шифротекст");
+  }
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivRaw }, aesKey, ciphertext);
   return new TextDecoder().decode(decrypted);
 }
