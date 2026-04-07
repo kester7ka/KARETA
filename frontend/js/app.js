@@ -1,7 +1,20 @@
-import { getMe } from "./api.js";
+import { getMe, apiBase } from "./api.js";
 import { clearSession, loadSession, saveSession } from "./storage.js";
 import { renderAuthScreen } from "./pages/auth.page.js";
 import { renderMessengerScreen } from "./pages/messenger.page.js";
+
+function showGithubApiHint() {
+  const host = window.location.hostname || "";
+  if (!host.endsWith("github.io")) return;
+  if (apiBase()) return;
+  const el = document.createElement("div");
+  el.textContent =
+    "KARETA: в meta kareta-api-base нет HTTPS-URL туннеля — запросы уходят на GitHub и дают ошибку. Укажи URL cloudflared в frontend/index.html и сделай push. Либо открой в телефоне прямую ссылку *.trycloudflare.com.";
+  el.style.cssText =
+    "position:fixed;inset:0 auto auto 0;right:0;z-index:99999;padding:12px;background:#3d1212;color:#f5e5e5;font:14px/1.45 system-ui,sans-serif;text-align:center;";
+  document.body.prepend(el);
+}
+showGithubApiHint();
 
 const root = document.querySelector("#app-root");
 const appShell = document.querySelector(".app-shell");

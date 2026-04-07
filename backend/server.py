@@ -18,6 +18,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from pydantic import BaseModel, EmailStr, field_validator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,12 +34,33 @@ REGISTRATION_SESSION_TTL_MINUTES = 15
 SESSION_TTL_DAYS = 30
 
 app = FastAPI(title="KARETA API", version="0.2.0")
+
+
+class ApiOptionsMiddleware(BaseHTTPMiddleware):
+    """Явный ответ на OPTIONS /api/* (CORS preflight) для клиентов за trycloudflare / мобильных Safari."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS" and request.url.path.startswith("/api"):
+            req_h = request.headers.get("access-control-request-headers", "*")
+            return Response(
+                status_code=204,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT",
+                    "Access-Control-Allow-Headers": req_h,
+                    "Access-Control-Max-Age": "86400",
+                },
+            )
+        return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ApiOptionsMiddleware)
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
 

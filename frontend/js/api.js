@@ -1,23 +1,43 @@
 import { getToken } from "./storage.js";
 
-/** Пустая строка = тот же хост, что и у страницы (сервер раздаёт и API, и фронт). Иначе полный URL бэкенда, например https://xxx.ngrok-free.app */
-function getApiBase() {
+/**
+ * База URL API. Пустая строка = тот же origin (удобно для http://127.0.0.1:8000 или когда открыт сам trycloudflare).
+ * На github.io пустая база ломает запросы: fetch("/api/...") уходит на github.io, не в репозиторий → часто 405.
+ */
+export function apiBase() {
   if (typeof window === "undefined") {
     return "";
   }
   const w = window.__KARETA_API_BASE__;
+  let base = "";
   if (w != null && String(w).trim() !== "") {
-    return String(w).replace(/\/$/, "");
+    base = String(w).trim().replace(/\/$/, "");
+  } else {
+    const meta = document.querySelector('meta[name="kareta-api-base"]');
+    const c = meta?.getAttribute("content")?.trim();
+    if (c) {
+      base = c.replace(/\/$/, "");
+    }
   }
-  const meta = document.querySelector('meta[name="kareta-api-base"]');
-  const c = meta?.getAttribute("content")?.trim();
-  if (c) {
-    return c.replace(/\/$/, "");
+  const host = window.location.hostname || "";
+  if (base && host.includes("trycloudflare.com")) {
+    try {
+      const u = new URL(base);
+      if (u.hostname === host) {
+        return "";
+      }
+    } catch {
+      /* ignore */
+    }
   }
-  return "";
+  return base;
 }
 
-const API_BASE = getApiBase();
+function apiUrl(path) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const b = apiBase();
+  return b ? `${b}${p}` : p;
+}
 
 function authHeaders(json = true) {
   const headers = {};
@@ -52,7 +72,7 @@ async function parseResponse(response) {
 }
 
 export async function sendRegisterCode(data) {
-  const response = await fetch(`${API_BASE}/api/auth/register/send-code`, {
+  const response = await fetch(apiUrl("/api/auth/register/send-code"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -61,7 +81,7 @@ export async function sendRegisterCode(data) {
 }
 
 export async function verifyRegister(data) {
-  const response = await fetch(`${API_BASE}/api/auth/register/verify`, {
+  const response = await fetch(apiUrl("/api/auth/register/verify"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -70,7 +90,7 @@ export async function verifyRegister(data) {
 }
 
 export async function completeRegister(data) {
-  const response = await fetch(`${API_BASE}/api/auth/register/complete`, {
+  const response = await fetch(apiUrl("/api/auth/register/complete"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -79,7 +99,7 @@ export async function completeRegister(data) {
 }
 
 export async function sendLoginCode(data) {
-  const response = await fetch(`${API_BASE}/api/auth/login/send-code`, {
+  const response = await fetch(apiUrl("/api/auth/login/send-code"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -88,7 +108,7 @@ export async function sendLoginCode(data) {
 }
 
 export async function verifyLogin(data) {
-  const response = await fetch(`${API_BASE}/api/auth/login/verify`, {
+  const response = await fetch(apiUrl("/api/auth/login/verify"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -97,7 +117,7 @@ export async function verifyLogin(data) {
 }
 
 export async function sendDeleteCode(data) {
-  const response = await fetch(`${API_BASE}/api/auth/delete/send-code`, {
+  const response = await fetch(apiUrl("/api/auth/delete/send-code"), {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -106,7 +126,7 @@ export async function sendDeleteCode(data) {
 }
 
 export async function confirmDelete(data) {
-  const response = await fetch(`${API_BASE}/api/auth/delete/confirm`, {
+  const response = await fetch(apiUrl("/api/auth/delete/confirm"), {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -115,12 +135,12 @@ export async function confirmDelete(data) {
 }
 
 export async function getMe() {
-  const response = await fetch(`${API_BASE}/api/me`, { headers: authHeaders(false) });
+  const response = await fetch(apiUrl("/api/me"), { headers: authHeaders(false) });
   return parseResponse(response);
 }
 
 export async function patchProfile(body) {
-  const response = await fetch(`${API_BASE}/api/me`, {
+  const response = await fetch(apiUrl("/api/me"), {
     method: "PATCH",
     headers: authHeaders(),
     body: JSON.stringify(body),
@@ -129,7 +149,7 @@ export async function patchProfile(body) {
 }
 
 export async function uploadPublicKey(publicKeySpkiB64) {
-  const response = await fetch(`${API_BASE}/api/me/public-key`, {
+  const response = await fetch(apiUrl("/api/me/public-key"), {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({ public_key_spki_b64: publicKeySpkiB64 }),
@@ -139,19 +159,19 @@ export async function uploadPublicKey(publicKeySpkiB64) {
 
 export async function searchUsers(q) {
   const params = new URLSearchParams({ q });
-  const response = await fetch(`${API_BASE}/api/users/search?${params}`, {
+  const response = await fetch(apiUrl(`/api/users/search?${params}`), {
     headers: authHeaders(false),
   });
   return parseResponse(response);
 }
 
 export async function fetchChats() {
-  const response = await fetch(`${API_BASE}/api/chats`, { headers: authHeaders(false) });
+  const response = await fetch(apiUrl("/api/chats"), { headers: authHeaders(false) });
   return parseResponse(response);
 }
 
 export async function openChat(peerUsername) {
-  const response = await fetch(`${API_BASE}/api/chats/open`, {
+  const response = await fetch(apiUrl("/api/chats/open"), {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify({ peer_username: peerUsername }),
@@ -160,14 +180,14 @@ export async function openChat(peerUsername) {
 }
 
 export async function fetchMessages(conversationId) {
-  const response = await fetch(`${API_BASE}/api/chats/${conversationId}/messages`, {
+  const response = await fetch(apiUrl(`/api/chats/${conversationId}/messages`), {
     headers: authHeaders(false),
   });
   return parseResponse(response);
 }
 
 export async function markChatRead(conversationId) {
-  const response = await fetch(`${API_BASE}/api/chats/${conversationId}/read`, {
+  const response = await fetch(apiUrl(`/api/chats/${conversationId}/read`), {
     method: "POST",
     headers: authHeaders(false),
   });
@@ -175,7 +195,7 @@ export async function markChatRead(conversationId) {
 }
 
 export async function sendChatMessage(conversationId, payload) {
-  const response = await fetch(`${API_BASE}/api/chats/${conversationId}/messages`, {
+  const response = await fetch(apiUrl(`/api/chats/${conversationId}/messages`), {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(payload),
@@ -184,14 +204,14 @@ export async function sendChatMessage(conversationId, payload) {
 }
 
 export async function fetchPeerProfile(conversationId) {
-  const response = await fetch(`${API_BASE}/api/chats/${conversationId}/peer-profile`, {
+  const response = await fetch(apiUrl(`/api/chats/${conversationId}/peer-profile`), {
     headers: authHeaders(false),
   });
   return parseResponse(response);
 }
 
 export async function sendFriendRequest(conversationId) {
-  const response = await fetch(`${API_BASE}/api/chats/${conversationId}/friend-request`, {
+  const response = await fetch(apiUrl(`/api/chats/${conversationId}/friend-request`), {
     method: "POST",
     headers: authHeaders(false),
   });
@@ -199,7 +219,7 @@ export async function sendFriendRequest(conversationId) {
 }
 
 export async function acceptFriendRequest(requestId) {
-  const response = await fetch(`${API_BASE}/api/friend-requests/${requestId}/accept`, {
+  const response = await fetch(apiUrl(`/api/friend-requests/${requestId}/accept`), {
     method: "POST",
     headers: authHeaders(false),
   });
@@ -207,14 +227,14 @@ export async function acceptFriendRequest(requestId) {
 }
 
 export async function fetchContacts() {
-  const response = await fetch(`${API_BASE}/api/contacts`, {
+  const response = await fetch(apiUrl("/api/contacts"), {
     headers: authHeaders(false),
   });
   return parseResponse(response);
 }
 
 export async function logoutSession() {
-  const response = await fetch(`${API_BASE}/api/auth/session`, {
+  const response = await fetch(apiUrl("/api/auth/session"), {
     method: "DELETE",
     headers: authHeaders(false),
   });
