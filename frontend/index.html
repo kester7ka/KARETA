@@ -6,7 +6,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <!-- Если фронт на GitHub Pages, а API на ПК — укажи HTTPS-URL туннеля (ngrok, Cloudflare Tunnel): content="https://..." -->
+    <!--
+      Пустой content = API на том же хосте, что и страница (удобно для http://127.0.0.1:8000).
+      Для GitHub Pages: запусти start_server.bat + start_tunnel.bat, скопируй HTTPS из консоли (*.trycloudflare.com),
+      вставь ниже без слэша в конце, сделай commit и push. После каждого нового quick-tunnel URL может смениться.
+    -->
     <meta name="kareta-api-base" content="" />
     <meta name="theme-color" content="#0a0a0a" />
     <title>KARETA</title>

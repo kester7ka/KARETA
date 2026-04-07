@@ -13,3 +13,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Локальные бинарники туннелей (не коммитить)
+cloudflared.exe
+ngrok.exe

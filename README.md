@@ -36,28 +36,31 @@ git push -u origin main
 
 ## «Веб» на GitHub Pages, а сервер на твоём ПК
 
-Так можно открывать интерфейс с телефона по ссылке вида `https://username.github.io/repo/`, а API крутится только на компьютере.
+Так можно открывать интерфейс по `https://username.github.io/repo/`, а API крутится только на компьютере.
 
-1. **Сервер на ПК** по-прежнему: `python backend/server.py` (порт 8000). В `server.py` уже включён CORS `*`, отдельно ничего не нужно.
-2. **Доступ из интернета к ПК**: подними **HTTPS-туннель** (браузер с GitHub Pages не даст ходить на «голый» HTTP с твоего ПК).
-   - [ngrok](https://ngrok.com/): `ngrok http 8000` → возьми выданный `https://....ngrok-free.app`
-   - или [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
-3. **Фронт на GitHub Pages**: в репозитории **Settings → Pages** выбери источник **GitHub Actions** (не «ветка» — там доступны только корень или `/docs`, папки `/frontend` нет). В проекте уже есть workflow `.github/workflows/pages.yml`: он публикует содержимое папки `frontend/` при каждом push в `main`. После первого успешного запуска workflow сайт появится по ссылке из **Settings → Pages**.
-4. В **`frontend/index.html`** в теге meta укажи URL туннеля **без** слэша в конце:
+### Бесплатный туннель без подписок (Cloudflare quick)
 
-```html
-<meta name="kareta-api-base" content="https://ВАШ-ID.ngrok-free.app" />
-```
-
-Альтернатива без правки HTML: перед подключением `app.js` вставить:
+1. Скачай **cloudflared** для Windows: [релизы cloudflared](https://github.com/cloudflare/cloudflared/releases) — файл вроде `cloudflared-windows-amd64.exe`, переименуй в **`cloudflared.exe`** и положи в **корень папки KARETA** (рядом с `start_server.bat`). В git он не попадёт — см. `.gitignore`.
+2. Запусти **`start_server.bat`** (сервер на порту 8000).
+3. Запусти **`start_tunnel.bat`** — в окне появится HTTPS-адрес вида `https://….trycloudflare.com`. Аккаунт Cloudflare для этого режима не нужен.
+4. Открой **`frontend/index.html`**, в meta **`kareta-api-base`** вставь этот URL **без** слэша в конце, сохрани:
 
 ```html
-<script>window.__KARETA_API_BASE__ = "https://ВАШ-ID.ngrok-free.app";</script>
+<meta name="kareta-api-base" content="https://твой-поддомен.trycloudflare.com" />
 ```
 
-5. Пока ПК выключен или туннель не запущен, сайт на GitHub откроется, но **запросы к API не дойдут** — это нормально для домашнего сервера.
+5. **`git add`**, **`commit`**, **`push`** — подожди GitHub Actions, открой сайт на Pages.
 
-**Проще для себя:** не использовать Pages, а заходить всегда на `http://127.0.0.1:8000` или по локальной сети `http://IP_ПК:8000` с телефона в той же Wi‑Fi.
+При каждом **новом** запуске quick-tunnel URL часто **меняется** — тогда снова правь meta и push. Пока ПК выключен или туннель не запущен, с GitHub API не ответит.
+
+**Альтернативы:** [ngrok](https://ngrok.com/) (`ngrok http 8000`), свой HTTPS на роутере — суть та же: в meta нужен **HTTPS**-URL до твоего порта 8000.
+
+### Pages и CORS
+
+1. **Сервер:** `python backend/server.py` (порт 8000), CORS в `server.py` уже `*`.
+2. **GitHub Pages:** **Settings → Pages** → источник **GitHub Actions**; workflow `.github/workflows/pages.yml` публикует папку **`frontend/`** при push в `main`.
+
+**Проще без интернета:** только `http://127.0.0.1:8000` или `http://IP_ПК:8000` в той же Wi‑Fi — туннель не нужен, meta **`kareta-api-base`** оставь **пустым**.
 
 ---
 
@@ -82,6 +85,7 @@ KARETA/
 │   └── js/
 ├── requirements.txt
 ├── start_server.bat
+├── start_tunnel.bat        # Cloudflare quick tunnel → порт 8000 (нужен cloudflared.exe)
 ├── .env.example
 └── README.md
 ```
