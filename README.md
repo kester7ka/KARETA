@@ -67,8 +67,25 @@ git push -u origin main
 
 ---
 
-## Структура
+## Структура репозитория
 
-- `backend/server.py` — API, статика `/assets` → `frontend/`
-- `frontend/` — `index.html`, `css/`, `js/`
-- `requirements.txt` — зависимости Python
+Весь фронтенд — **только** в папке `frontend/`. В корне проекта **не** должно быть отдельных `css/`, `js/`, `index.html` (это дубликаты и путают GitHub Pages и сервер).
+
+```
+KARETA/
+├── .github/workflows/pages.yml   # деплой frontend/ на GitHub Pages
+├── backend/
+│   └── server.py                 # API + раздача статики из frontend/
+├── frontend/
+│   ├── index.html
+│   ├── css/
+│   └── js/
+├── requirements.txt
+├── start_server.bat
+├── .env.example
+└── README.md
+```
+
+- `backend/server.py` — API; URL `/assets/...` отдаёт файлы из `frontend/`.
+- `frontend/` — единственная копия интерфейса (HTML, CSS, JS).
+- `.env` и `backend/kareta.db` создаются локально и в git не входят.
