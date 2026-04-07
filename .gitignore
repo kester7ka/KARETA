@@ -1,0 +1,15 @@
+.env
+.env.local
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+backend/kareta.db
+*.db-journal
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
