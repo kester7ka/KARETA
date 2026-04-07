@@ -42,7 +42,7 @@ git push -u origin main
 2. **Доступ из интернета к ПК**: подними **HTTPS-туннель** (браузер с GitHub Pages не даст ходить на «голый» HTTP с твоего ПК).
    - [ngrok](https://ngrok.com/): `ngrok http 8000` → возьми выданный `https://....ngrok-free.app`
    - или [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
-3. **Фронт на GitHub Pages**: в репозитории **Settings → Pages**, источник, например, ветка `main` и папка `/frontend` (или корень, если переложишь файлы).
+3. **Фронт на GitHub Pages**: в репозитории **Settings → Pages** выбери источник **GitHub Actions** (не «ветка» — там доступны только корень или `/docs`, папки `/frontend` нет). В проекте уже есть workflow `.github/workflows/pages.yml`: он публикует содержимое папки `frontend/` при каждом push в `main`. После первого успешного запуска workflow сайт появится по ссылке из **Settings → Pages**.
 4. В **`frontend/index.html`** в теге meta укажи URL туннеля **без** слэша в конце:
 
 ```html
