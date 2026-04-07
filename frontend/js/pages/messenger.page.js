@@ -141,7 +141,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
   let profileMenuMode = true;
   let thread = null;
   let pollTimer = null;
-  let notifTimer = null;
+  let lastChatsNotifySig = null;
 
   function closeModal() {
     const el = container.querySelector("#ms-modal-overlay");
@@ -310,6 +310,63 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
       container.querySelector("#ms-title").textContent = TITLES[section] || "KARETA";
       renderBody({ animateTab: true, tabDir });
     });
+
+    const EDGE_PX = 32;
+    const SWIPE_MIN_DX = 64;
+    let edgeSwipe = null;
+    const shell = container.querySelector("#ms-shell");
+    shell.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) {
+          edgeSwipe = null;
+          return;
+        }
+        const t = e.touches[0];
+        if (t.clientX > EDGE_PX) {
+          edgeSwipe = null;
+          return;
+        }
+        edgeSwipe = { x: t.clientX, y: t.clientY };
+      },
+      { passive: true },
+    );
+    shell.addEventListener(
+      "touchend",
+      (e) => {
+        if (!edgeSwipe || !e.changedTouches.length) {
+          return;
+        }
+        const t = e.changedTouches[0];
+        const dx = t.clientX - edgeSwipe.x;
+        const dy = Math.abs(t.clientY - edgeSwipe.y);
+        edgeSwipe = null;
+        if (dy > 110) {
+          return;
+        }
+        if (dx < SWIPE_MIN_DX) {
+          return;
+        }
+        if (thread) {
+          closeThread();
+          return;
+        }
+        if (section === "profile" && !profileMenuMode) {
+          profileMenuMode = true;
+          renderBody();
+        }
+      },
+      { passive: true },
+    );
+  }
+
+  function chatsNotifySignature(chats) {
+    if (!chats || !chats.length) {
+      return "";
+    }
+    return chats
+      .map((c) => `${c.id}|${c.updated_at || ""}|${String(c.last_message || "").slice(0, 160)}`)
+      .join("¦");
   }
 
   async function syncFromServer() {
@@ -326,6 +383,25 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
       if (mapped.length) {
         setChatsCache(mergeChatsWithPreviews(mapped));
       }
+      const sig = chatsNotifySignature(chatsRes.chats);
+      if (
+        lastChatsNotifySig !== null &&
+        sig !== lastChatsNotifySig &&
+        document.hidden &&
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted" &&
+        !thread
+      ) {
+        try {
+          new Notification("KARETA", {
+            body: "Новое сообщение или обновление в чатах.",
+            tag: "kareta-chats",
+          });
+        } catch {
+          /* iOS / встроенные браузеры часто блокируют */
+        }
+      }
+      lastChatsNotifySig = sig;
     } catch {
       /* keep cache */
     } finally {
@@ -340,6 +416,10 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
   function closeThread() {
     stopPoll();
     thread = null;
+    const bodyEl = container.querySelector("#ms-body");
+    if (bodyEl) {
+      bodyEl.classList.remove("ms-body--thread");
+    }
     container.querySelector("#ms-back").classList.add("hidden");
     container.querySelector("#ms-nav").classList.remove("hidden");
     container.querySelector("#ms-title").textContent = TITLES[section] || TITLES.chats;
@@ -490,6 +570,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
 
   async function renderThread() {
     const body = container.querySelector("#ms-body");
+    body.classList.add("ms-body--thread");
     const canEncrypt = Boolean(thread.peer.public_key_spki);
     body.innerHTML = `
       <div class="ms-thread">
@@ -1140,14 +1221,7 @@ export function renderMessengerScreen(container, { user, onBackToAuth }) {
     setRefreshing(true);
   });
 
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
-  if ("Notification" in window) {
-    notifTimer = window.setInterval(() => {
-      if (navigator.onLine && document.hidden && Notification.permission === "granted") {
-        new Notification("KARETA", { body: "Проверка сообщений." });
-      }
-    }, 120000);
+  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
   }
 }

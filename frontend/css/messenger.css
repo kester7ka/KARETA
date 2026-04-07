@@ -85,16 +85,30 @@
 
 .ms-body {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   overscroll-behavior-x: none;
-  padding-bottom: calc(var(--k-nav-h) + var(--k-safe-b) + 22px);
   touch-action: pan-y;
   max-width: 100%;
 }
 
+/* Отступ под нижнюю навигацию только когда не открыт чат (в чате панель навигации скрыта) */
+.ms-body:not(.ms-body--thread) {
+  padding-bottom: calc(var(--k-nav-h) + var(--k-safe-b) + 18px);
+}
+
+.ms-body--thread {
+  padding-bottom: calc(4px + var(--k-safe-b));
+}
+
 .ms-tab-panel {
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ms-tab-panel--in-next {
@@ -140,14 +154,15 @@
 
 .ms-nav {
   position: fixed;
-  bottom: 10px;
+  bottom: max(8px, var(--k-safe-b));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 24px);
   max-width: 496px;
   display: flex;
+  align-items: stretch;
   gap: 4px;
-  padding: 8px 10px calc(8px + var(--k-safe-b));
+  padding: 6px 8px calc(6px + var(--k-safe-b));
   border-radius: 20px;
   background: rgba(17, 17, 17, 0.68);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -155,26 +170,41 @@
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   z-index: 30;
+  box-sizing: border-box;
+  max-height: calc(88px + var(--k-safe-b));
 }
 
 .ms-nav button {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  max-height: 76px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
   border: none;
   border-radius: 14px;
   background: transparent;
   color: var(--k-muted);
-  font-size: 0.65rem;
+  font-size: 0.6rem;
+  line-height: 1.15;
   cursor: pointer;
   font-weight: 600;
+  overflow: hidden;
   transition:
     color 0.22s ease,
     background 0.22s ease,
     transform 0.18s ease;
+}
+
+.ms-nav button i[data-lucide],
+.ms-nav button svg {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .ms-nav button:active {
@@ -305,9 +335,12 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
 .ms-thread-peer {
+  flex-shrink: 0;
   margin: 8px 12px 0;
   padding: 10px;
   border: 1px solid var(--k-border);
@@ -317,6 +350,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+#ms-request-host {
+  flex-shrink: 0;
 }
 
 .ms-friend-request {
@@ -339,11 +376,15 @@
 
 .ms-msgs {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overscroll-behavior: contain;
 }
 
 .ms-bubble {
@@ -411,12 +452,16 @@
 }
 
 .ms-compose {
+  flex-shrink: 0;
   display: flex;
   gap: 8px;
+  align-items: flex-end;
   padding: 10px 12px;
-  border-top: 1px solid var(--k-border);
-  background: var(--k-surface);
   padding-bottom: calc(10px + var(--k-safe-b));
+  border-top: 1px solid var(--k-border);
+  background: var(--k-bg);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 10;
 }
 
 .ms-compose textarea {
@@ -678,10 +723,12 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding-bottom: 24px;
+  padding-bottom: 16px;
   flex: 1;
   min-height: 0;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .pf-hero {

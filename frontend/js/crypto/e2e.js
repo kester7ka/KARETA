@@ -17,8 +17,25 @@ function bufToB64(buf) {
   return btoa(bin);
 }
 
+/** Safari / JSON иногда отдают base64 без padding или с пробелами — atob падает. */
+function normalizeB64(s) {
+  if (s == null) {
+    return "";
+  }
+  let t = String(s).trim().replace(/\s/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  const pad = t.length % 4;
+  if (pad === 2) {
+    t += "==";
+  } else if (pad === 3) {
+    t += "=";
+  } else if (pad === 1) {
+    throw new Error("Некорректная base64");
+  }
+  return t;
+}
+
 function b64ToBuf(b64) {
-  const bin = atob(b64);
+  const bin = atob(normalizeB64(b64));
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) {
     buf[i] = bin.charCodeAt(i);
@@ -129,7 +146,7 @@ export async function encryptChatMessage(aesKey, plainText) {
 
 export async function decryptChatMessage(aesKey, ivB64, ciphertextB64) {
   const iv = new Uint8Array(b64ToBuf(ivB64));
-  const ciphertext = b64ToBuf(ciphertextB64);
+  const ciphertext = new Uint8Array(b64ToBuf(ciphertextB64));
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, ciphertext);
   return new TextDecoder().decode(decrypted);
 }
