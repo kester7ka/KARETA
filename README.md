@@ -86,6 +86,6 @@ KARETA/
 └── README.md
 ```
 
-- `backend/server.py` — API; URL `/assets/...` отдаёт файлы из `frontend/`.
+- `backend/server.py` — API; статика `/css/...` и `/js/...` из папок `frontend/css`, `frontend/js` (как на GitHub Pages).
 - `frontend/` — единственная копия интерфейса (HTML, CSS, JS).
 - `.env` и `backend/kareta.db` создаются локально и в git не входят.

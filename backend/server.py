@@ -37,7 +37,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
+app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
+app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
 
 security = HTTPBearer(auto_error=False)
 
