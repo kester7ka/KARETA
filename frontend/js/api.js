@@ -1,34 +1,30 @@
 import { getToken } from "./storage.js";
 
 /**
- * База URL API. Пустая строка = тот же origin (удобно для http://127.0.0.1:8000 или когда открыт сам trycloudflare).
- * На github.io пустая база ломает запросы: fetch("/api/...") уходит на github.io, не в репозиторий → часто 405.
+ * База URL API. Пустая строка = тот же origin (127.0.0.1:8000, *.trycloudflare.com).
+ * Хост *.trycloudflare.com обрабатывается явно — meta можно не менять при новом quick tunnel.
+ * На github.io без URL в meta kareta-api-base запросы уйдут не туда — см. подсказку в app.js.
  */
 export function apiBase() {
   if (typeof window === "undefined") {
     return "";
   }
   const w = window.__KARETA_API_BASE__;
-  let base = "";
   if (w != null && String(w).trim() !== "") {
-    base = String(w).trim().replace(/\/$/, "");
-  } else {
-    const meta = document.querySelector('meta[name="kareta-api-base"]');
-    const c = meta?.getAttribute("content")?.trim();
-    if (c) {
-      base = c.replace(/\/$/, "");
-    }
+    return String(w).trim().replace(/\/$/, "");
   }
+
   const host = window.location.hostname || "";
-  if (base && host.includes("trycloudflare.com")) {
-    try {
-      const u = new URL(base);
-      if (u.hostname === host) {
-        return "";
-      }
-    } catch {
-      /* ignore */
-    }
+  // Quick Tunnel: страница и API на одном хосте *.trycloudflare.com — не нужно править meta после смены URL.
+  if (host === "trycloudflare.com" || host.endsWith(".trycloudflare.com")) {
+    return "";
+  }
+
+  let base = "";
+  const meta = document.querySelector('meta[name="kareta-api-base"]');
+  const c = meta?.getAttribute("content")?.trim();
+  if (c) {
+    base = c.replace(/\/$/, "");
   }
   return base;
 }
