@@ -10,7 +10,9 @@
 4. Запуск:
    - двойной клик по `start_server.bat`, **или**
    - `python backend/server.py`
-5. Открой в браузере: [http://127.0.0.1:8000](http://127.0.0.1:8000) — сервер отдаёт и API, и статику из `frontend/`.
+5. Сервер слушает **порт 5000** на всех интерфейсах (`0.0.0.0`). Локально: [http://127.0.0.1:5000](http://127.0.0.1:5000) — отдаётся и API, и статика из `frontend/`.
+
+В фаерволе Windows открой входящий **TCP 5000**, если нужен доступ из интернета по белому IP.
 
 `.env` и `backend/kareta.db` в репозиторий не попадают (см. `.gitignore`).
 
@@ -34,35 +36,30 @@ git push -u origin main
 
 ---
 
-## «Веб» на GitHub Pages, а сервер на твоём ПК
+## Интерфейс на GitHub Pages, API на твоём ПК (статический IP)
 
-Так можно открывать интерфейс по `https://username.github.io/repo/`, а API крутится только на компьютере.
-
-### Бесплатный туннель без подписок (Cloudflare quick)
-
-1. Скачай **cloudflared** для Windows: [релизы cloudflared](https://github.com/cloudflare/cloudflared/releases) — файл вроде `cloudflared-windows-amd64.exe`, переименуй в **`cloudflared.exe`** и положи в **корень папки KARETA** (рядом с `start_server.bat`). В git он не попадёт — см. `.gitignore`.
-2. Запусти **`start_server.bat`** (сервер на порту 8000).
-3. Запусти **`start_tunnel.bat`** — в окне появится HTTPS-адрес вида `https://….trycloudflare.com`. Аккаунт Cloudflare для этого режима не нужен.
-4. Открой **`frontend/index.html`**, в meta **`kareta-api-base`** вставь этот URL **без** слэша в конце, сохрани:
+1. На роутере/у провайдера у тебя **статический внешний IP** (например для доступа из интернета).
+2. Запусти **`start_server.bat`** на ПК, чтобы слушался порт **5000**.
+3. В **`frontend/index.html`** в meta **`kareta-api-base`** укажи базовый URL API **без** слэша в конце, например:
 
 ```html
-<meta name="kareta-api-base" content="https://твой-поддомен.trycloudflare.com" />
+<meta name="kareta-api-base" content="http://93.179.75.247:5000" />
 ```
 
-5. **`git add`**, **`commit`**, **`push`** — подожди GitHub Actions, открой сайт на Pages.
+Подставь свой IP при смене адреса.
 
-При каждом **новом** запуске quick-tunnel URL часто **меняется** — тогда снова правь meta и push. Пока ПК выключен или туннель не запущен, с GitHub API не ответит.
+4. **`git add`**, **`commit`**, **`push`** — после GitHub Actions открой сайт на Pages.
 
-**Ошибка 405 на телефоне с github.io:** чаще всего в `kareta-api-base` пусто или телефон открыл **старую** закэшированную страницу — запросы улетают на сам GitHub, а не на туннель. Обнови meta, сделай push, на телефоне открой сайт заново (или «без кеша»). Альтернатива: в закладках держи **прямую** ссылку `https://….trycloudflare.com` (тот же фронт с твоего ПК, без cross-origin).
+**Важно:** GitHub Pages отдаёт страницу по **HTTPS**. Запросы с неё на **`http://`…** API браузер часто **блокирует** (mixed content). Варианты: поднять **HTTPS** на своём сервере (обратный прокси с сертификатом), использовать туннель с HTTPS, либо открывать интерфейс не с `github.io`, а напрямую с ПК (`http://ТВОЙ_IP:5000`), оставив **`kareta-api-base`** пустым.
 
-**Альтернативы:** [ngrok](https://ngrok.com/) (`ngrok http 8000`), свой HTTPS на роутере — суть та же: в meta нужен **HTTPS**-URL до твоего порта 8000.
+Пока ПК выключен или порт закрыт, с GitHub API не ответит.
 
 ### Pages и CORS
 
-1. **Сервер:** `python backend/server.py` (порт 8000), CORS в `server.py` уже `*`.
+1. **Сервер:** `python backend/server.py` (порт **5000**), CORS в коде уже `*`.
 2. **GitHub Pages:** **Settings → Pages** → источник **GitHub Actions**; workflow `.github/workflows/pages.yml` публикует папку **`frontend/`** при push в `main`.
 
-**Проще без интернета:** только `http://127.0.0.1:8000` или `http://IP_ПК:8000` в той же Wi‑Fi — туннель не нужен, meta **`kareta-api-base`** оставь **пустым**.
+**Только локальная сеть:** `http://127.0.0.1:5000` или `http://IP_ПК_в_LAN:5000` — meta **`kareta-api-base`** можно оставить **пустым** (тот же origin).
 
 ---
 
@@ -87,7 +84,6 @@ KARETA/
 │   └── js/
 ├── requirements.txt
 ├── start_server.bat
-├── start_tunnel.bat        # Cloudflare quick tunnel → порт 8000 (нужен cloudflared.exe)
 ├── .env.example
 └── README.md
 ```

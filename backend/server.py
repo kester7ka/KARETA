@@ -37,7 +37,7 @@ app = FastAPI(title="KARETA API", version="0.2.0")
 
 
 class ApiOptionsMiddleware(BaseHTTPMiddleware):
-    """Явный ответ на OPTIONS /api/* (CORS preflight) для клиентов за trycloudflare / мобильных Safari."""
+    """Явный ответ на OPTIONS /api/* (CORS preflight), в т.ч. для кросс-доменных клиентов и мобильных Safari."""
 
     async def dispatch(self, request: Request, call_next):
         if request.method == "OPTIONS" and request.url.path.startswith("/api"):
@@ -1460,4 +1460,5 @@ async def logout_session(credentials: Optional[HTTPAuthorizationCredentials] = D
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # 0.0.0.0 — чтобы к API можно было достучаться с интернета по статическому IP (порт проброшен в фаерволе).
+    uvicorn.run(app, host="0.0.0.0", port=5000)

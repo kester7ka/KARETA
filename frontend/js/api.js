@@ -1,7 +1,7 @@
 import { getToken } from "./storage.js";
 
 /**
- * База URL API. Пустая строка = тот же origin (удобно для http://127.0.0.1:8000 или когда открыт сам trycloudflare).
+ * База URL API. Пустая строка = тот же origin (удобно при открытии сайта прямо с сервера, например http://IP:5000).
  * На github.io пустая база ломает запросы: fetch("/api/...") уходит на github.io, не в репозиторий → часто 405.
  */
 export function apiBase() {
